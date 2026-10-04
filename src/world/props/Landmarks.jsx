@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import { AdditiveBlending, Shape } from 'three'
 import { CuboidCollider, CylinderCollider, RigidBody } from '@react-three/rapier'
+import { THIN_PROPS, THIN_RADIUS } from '../collision'
 import { archShape, archWin, cached, createKit, createSigns, glassMaterial, hash, MATS, onFace, patternTexture, roundRectShape } from './kit'
 import { KitMesh } from './KitMesh'
 import { ParkedCar } from './Traffic'
@@ -26,7 +27,12 @@ export function Body({ at, rot = 0, boxes = [], cyls = [], children }) {
         <CuboidCollider key={i} args={[w / 2, h / 2, d / 2]} position={[x, h / 2, z]} />
       ))}
       {cyls.map(([x, z, r, h], i) => (
-        <CylinderCollider key={i} args={[h / 2, r]} position={[x, h / 2, z]} />
+        <CylinderCollider
+          key={i}
+          args={[h / 2, r]}
+          position={[x, h / 2, z]}
+          collisionGroups={r < THIN_RADIUS ? THIN_PROPS : undefined}
+        />
       ))}
       {children}
     </RigidBody>

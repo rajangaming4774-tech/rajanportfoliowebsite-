@@ -18,6 +18,7 @@ import { ROADS, SEA_X } from '../zones'
 import { cached, createKit, hash, isClear } from './kit'
 import { KitMesh } from './KitMesh'
 import { Body } from './Landmarks'
+import { THIN_PROPS } from '../collision'
 
 const PI = Math.PI
 const ROAD = '#3d3d40'
@@ -28,7 +29,7 @@ function PoleColliders({ poles }) {
   return (
     <RigidBody type="fixed" colliders={false}>
       {poles.map(([x, z, r, h], i) => (
-        <CylinderCollider key={i} args={[h / 2, r]} position={[x, h / 2, z]} />
+        <CylinderCollider key={i} args={[h / 2, r]} position={[x, h / 2, z]} collisionGroups={THIN_PROPS} />
       ))}
     </RigidBody>
   )
@@ -112,7 +113,7 @@ function buildLamps() {
     const hx = x + dx * 0.95
     const hz = z + dz * 0.95
     k.sphere('#ffd48a', [0.26, 8, 6], [hx, 5.12, hz], { s: [1, 0.6, 1], layer: 'glow' })
-    halo.ico('#ffb86b', [1.1, 1], [hx, 5.1, hz], { layer: 'glow' })
+    halo.ico('#ffb86b', [0.7, 1], [hx, 5.15, hz], { layer: 'glow' })
   }
   return { kit: k.build(), halo: halo.build(), poles: spots.map(([x, z]) => [x, z, 0.12, 5.2]) }
 }

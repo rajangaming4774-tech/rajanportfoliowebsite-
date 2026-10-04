@@ -4,6 +4,7 @@ import { CapsuleCollider, RigidBody, useRapier } from '@react-three/rapier'
 import { Vector3 } from 'three'
 import CharacterModel from './CharacterModel'
 import { SPAWN, findZone } from './zones'
+import { CAMERA_RAY } from './collision'
 
 const WALK_SPEED = 2.4 // brisk walk; the Walk clip plays at ~1.6x
 const RUN_SPEED = 6.5 // Shift: running
@@ -131,11 +132,11 @@ export default function Player({ inputRef, camRef, uiRef, rideRef, playerPosRef,
     // Pull the camera in front of anything between it and the player.
     camRay.origin = { x: camTarget.x, y: camTarget.y, z: camTarget.z }
     camRay.dir = { x: dirX, y: dirY, z: dirZ }
-    const camHit = world.castRay(camRay, cam.distance + CAM_MARGIN, true, EXCLUDE_SENSORS, undefined, undefined, b)
+    const camHit = world.castRay(camRay, cam.distance + CAM_MARGIN, true, EXCLUDE_SENSORS, CAMERA_RAY, undefined, b)
     const hitToi = camHit ? (camHit.timeOfImpact ?? camHit.toi) : Infinity
     const wanted = Math.max(MIN_CAM_DIST, Math.min(cam.distance, hitToi - CAM_MARGIN))
-    // Snap in quickly, ease back out slowly so it doesn't jitter at corners.
-    const rate = wanted < camDist.current ? 24 : 2.5
+    // Pull in fast enough not to sit inside a wall, ease back out slowly so it doesn't jitter at corners.
+    const rate = wanted < camDist.current ? 12 : 2
     camDist.current += (wanted - camDist.current) * (1 - Math.exp(-rate * dt))
     const d = camDist.current
     state.camera.position.set(camTarget.x + dirX * d, camTarget.y + dirY * d, camTarget.z + dirZ * d)
