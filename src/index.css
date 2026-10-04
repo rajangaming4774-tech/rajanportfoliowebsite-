@@ -1,0 +1,67 @@
+:root {
+  --bg: #0b0a08;
+  --surface: #14110e;
+  --line: rgba(255, 220, 180, 0.12);
+  --text: #eee3d0;
+  --dim: #8f8574;
+  --amber: #ffb347;
+  --orange: #ff8a3d;
+  --yellow: #f6c343;
+  --green: #7ee787;
+  --red: #ff6b6b;
+  --sea: #3fb7c9;
+
+  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  color-scheme: dark;
+}
+
+/* The terminal is black and white. Token names are kept so its styles don't change:
+   --amber is the primary accent (white), the rest step down through greys. */
+.term-screen {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --line: rgba(255, 255, 255, 0.12);
+  --text: #ececec;
+  --dim: #8a8a8a;
+  --amber: #ffffff;
+  --orange: #d0d0d0;
+  --yellow: #b8b8b8;
+  --green: #f5f5f5;
+  --red: #a0a0a0;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--amber);
+  font-weight: 700;
+}
+
+::selection {
+  background: var(--amber);
+  color: var(--bg);
+}

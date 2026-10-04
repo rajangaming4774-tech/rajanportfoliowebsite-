@@ -1,0 +1,44 @@
+.world-audio-btn {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font: 600 11px var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: rgba(11, 10, 8, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: border-color 0.15s, background 0.15s;
+}
+.world-audio-btn:hover,
+.world-audio-btn:focus-visible {
+  border-color: var(--amber);
+  background: rgba(11, 10, 8, 0.9);
+  outline: none;
+}
+.world-audio-btn[aria-pressed='true'] {
+  color: var(--text);
+  opacity: 0.8;
+}
+.world-audio-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (pointer: coarse) {
+  .world-audio-btn {
+    bottom: 164px;
+  }
+}
