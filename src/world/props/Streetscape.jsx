@@ -22,19 +22,19 @@ const OBSTACLES = [
   [11, 15, 10.4, 14.4],
   [22, 26, 7.5, 11.5],
 ]
-const AIRPORT = [-22, 38, -130, -24]
+const AIRPORT = [-36, 38, -130, -24]
 const TOWER = [-54, -38, -74, -56]
-const BOUNDS = [-58.5, 51, -54, 64]
+const BOUNDS = [-69, 51, -54, 64]
 
 // Rows of lots. front = coordinate of the street-facing side; face = direction the front looks.
 const STRIPS = [
   { a: [-57, -9], front: 33, face: '-z', depth: 8, tall: 0.1, kind: 'shop' },
   { a: [-57, -7], front: 43.5, face: '-z', depth: 9, tall: 0.75, kind: 'shop' },
-  { a: [-57, -6], front: -10.5, face: '-z', depth: 7, tall: 0.1, kind: 'shop' },
+  { a: [-68, -6], front: -10.5, face: '-z', depth: 7, tall: 0.1, kind: 'shop' },
   { a: [8, 27.5], front: -10.5, face: '-z', depth: 7, tall: 0.2, kind: 'shop' },
-  { a: [-58, -41], front: -22, face: '+z', depth: 7, tall: 0.15, kind: 'shop' },
-  { a: [-58, -41], front: -31, face: '+z', depth: 7, tall: 0.5, kind: 'shop' },
-  { a: [-58, -41], front: -41, face: '+z', depth: 8, tall: 0.2, kind: 'house' },
+  // behind (north of) the Ripon Building, and a row along its west side
+  { a: [-68, -40], front: -42.5, face: '+z', depth: 8, tall: 0.2, kind: 'house' },
+  { a: [-41, -21.5], front: -64.8, face: '+x', depth: 4, tall: 0.15, kind: 'shop' },
   { a: [-9, 23], front: -8, face: '+x', depth: 5.5, tall: 0.1, kind: 'shop' },
   { a: [-58, -44.5], front: 23.2, face: '+z', depth: 6, tall: 0, kind: 'house' },
   { a: [-8, 16], front: -44.5, face: '+x', depth: 6.5, tall: 0.2, kind: 'house' },

@@ -33,7 +33,7 @@ export default function CityMap() {
 
       <Airport position={[8, 0, -56]} />
       <Planes />
-      <RiponBuilding position={[-27, 0, -36]} />
+      <RiponBuilding position={[-49, 0, -36]} />
       <Gopuram at={[21, 0, 16]} />
       <TeaKadai at={[9, 0, 9]} rot={Math.PI / 2} />
       <BusStop at={[5.4, 0, 8]} rot={-Math.PI / 2} />

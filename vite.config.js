@@ -1,3 +1,4 @@
+import process from 'node:process'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
@@ -5,6 +6,8 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Preview tooling assigns a free port via PORT.
+    port: Number(process.env.PORT) || 5174,
     // The project lives in OneDrive, whose sync can hide file changes from the
     // native watcher (the dev server then serves stale code). Polling is reliable.
     watch: { usePolling: true, interval: 300 },

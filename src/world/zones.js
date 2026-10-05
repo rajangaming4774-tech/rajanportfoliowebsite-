@@ -8,14 +8,14 @@ import { zones } from '../data/portfolio'
 export const SPAWN = [0, 2, -16]
 export const SPAWN_YAW = Math.PI // camera behind the player, looking south into the city
 
-export const WORLD_BOUNDS = { minX: -60, maxX: 54, minZ: -125, maxZ: 66 }
+export const WORLD_BOUNDS = { minX: -70, maxX: 54, minZ: -125, maxZ: 66 }
 export const BEACH_X = 34
 export const SEA_X = 46
 
 // [centerX, centerZ, width (x), length (z)]
 export const ROADS = [
   [0, 18, 7, 88], // main north–south road
-  [-9, -16, 82, 7], // road outside the airport
+  [-17, -16, 98, 7], // road outside the airport, west to the Ripon Building
   [31, 8, 6, 120], // beach road along the Marina
   [-4, 28, 70, 6], // cross road to the library
 ]
@@ -23,7 +23,7 @@ export const ROADS = [
 // position = the marker spot in front of each landmark (also the zone centre).
 export const ZONES = [
   { id: 'spawn', section: null, name: 'Chennai Airport', label: 'Welcome', position: [0, 0, -21], radius: 9 },
-  { id: 'experience', section: 'experience', name: zones.experience, label: 'Experience', position: [-26, 0, -26], radius: 8 },
+  { id: 'experience', section: 'experience', name: zones.experience, label: 'Experience', position: [-49, 0, -24], radius: 8, landing: { x: -49, z: -17.5, yaw: 0 } },
   { id: 'about', section: 'about', name: zones.about, label: 'About', position: [16, 0, 6], radius: 8 },
   { id: 'skills', section: 'skills', name: zones.skills, label: 'Skills', position: [-24, 0, 24], radius: 8 },
   { id: 'projects', section: 'projects', name: zones.projects, label: 'Projects', position: [12, 0, 38], radius: 9 },

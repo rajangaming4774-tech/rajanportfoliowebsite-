@@ -16,7 +16,7 @@ import { SkeletonUtils } from 'three/examples/jsm/Addons.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { stripLightsAndCameras } from './props/gltf'
 
-// The rigged human modelled in Higgsfield 3D (public/models/rajan-v5.glb): 16 bones, ~3.4k triangles,
+// The rigged human modelled in Higgsfield 3D (public/models/rajan-v6.glb): 16 bones, ~4.9k triangles,
 // origin at the feet, faces +z, 1.75 m. Parts are named by material: Skin, Hair, Tee
 // (open shirt), Print (tee underneath), Placket, Shorts (thighs), Legs (shins), Shoes,
 // Shades, Eyes, EyeWhite, Lips. Every instance gets its own skeleton.
@@ -30,7 +30,7 @@ import { stripLightsAndCameras } from './props/gltf'
 // speed (the exported GLB carries no usable animation clips), without allocating per
 // frame. It's skipped entirely while the character is hidden.
 
-export const HUMAN_MODEL = '/models/rajan-v5.glb'
+export const HUMAN_MODEL = '/models/rajan-v6.glb'
 
 const LEG = 0.83 // hip to ankle, metres
 const DEG = Math.PI / 180

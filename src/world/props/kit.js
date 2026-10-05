@@ -346,12 +346,12 @@ export function makeLabel(text, { bg = '#14100c', fg = '#ffcf6b', w = 256, h = 9
 /* ---------- placement helpers ---------- */
 
 // Airport terminal, roof overhang, deck and ramps (see Airport.jsx).
-const AIRPORT = { minX: -22, maxX: 38, minZ: -130, maxZ: -24 }
+const AIRPORT = { minX: -36, maxX: 38, minZ: -130, maxZ: -24 }
 
 // Landmark and streetscape footprints [minX, maxX, minZ, maxZ] that props must keep out of.
 // Streetscape registers its lots here before the palms and lamps are placed.
 export const FOOTPRINTS = [
-  [-38.5, -15.5, -40, -28.5], // Ripon Building
+  [-64, -34, -41, -21], // Ripon Building and its lawn
   [6.2, 28, 10.5, 23.8], // temple compound
   [6.5, 11.5, 6, 12.5], // tea kadai
   [-34, -14.5, 3.5, 19.5], // library

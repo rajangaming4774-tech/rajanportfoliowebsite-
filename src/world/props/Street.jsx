@@ -53,7 +53,7 @@ function buildRoads() {
     if (!inOther(x, z, self)) k.plane(LINE, [w, l], [x, 0.03, z], { r: flat })
   }
   for (let z = -10; z < 60; z += 4) dash(0, z, 0.25, 1.8, 0)
-  for (let x = -46; x < 28; x += 4) dash(x, -16, 1.8, 0.25, 1)
+  for (let x = -62; x < 28; x += 4) dash(x, -16, 1.8, 0.25, 1)
   for (let z = -48; z < 66; z += 4) dash(31, z, 0.25, 1.8, 2)
   for (let x = -34; x < 26; x += 4) dash(x, 28, 1.8, 0.25, 3)
   // zebra crossings
@@ -78,7 +78,7 @@ function lampSpots() {
     push(-4.6, z, 1, 0)
     push(4.6, z, -1, 0)
   }
-  for (let x = -46; x <= 26; x += 12) {
+  for (let x = -58; x <= 26; x += 12) {
     push(x, -20.7, 0, 1)
     push(x, -11.3, 0, -1)
   }
