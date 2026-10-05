@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { Html } from '@react-three/drei'
 import { CapsuleCollider, RigidBody, useRapier } from '@react-three/rapier'
 import { Vector3 } from 'three'
 import CharacterModel from './CharacterModel'
@@ -167,6 +168,10 @@ export default function Player({ inputRef, camRef, uiRef, rideRef, playerPosRef,
       <group ref={model}>
         <CharacterModel anim={anim} outfit={outfit} />
       </group>
+      {/* Name tag above the head; outside the turning model so it stays put. */}
+      <Html position={[0, 1.35, 0]} center zIndexRange={[20, 0]} className="name-tag-wrap">
+        <div className="name-tag">Rajan</div>
+      </Html>
     </RigidBody>
   )
 }

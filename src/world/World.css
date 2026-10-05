@@ -234,6 +234,23 @@
   color: var(--text);
 }
 
+/* Player name tag */
+.name-tag-wrap {
+  pointer-events: none;
+}
+.name-tag {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.78);
+  border: 1px solid rgba(255, 179, 71, 0.6);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--amber);
+  white-space: nowrap;
+  user-select: none;
+}
+
 /* Touch controls */
 .joystick {
   position: absolute;

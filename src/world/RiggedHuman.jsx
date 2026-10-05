@@ -15,6 +15,7 @@ import {
 import { SkeletonUtils } from 'three/examples/jsm/Addons.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { stripLightsAndCameras } from './props/gltf'
+import { HUMAN_MODEL, WOMAN_MODELS } from './humanModels'
 
 // The rigged human modelled in Higgsfield 3D (public/models/rajan-v6.glb): 16 bones, ~4.9k triangles,
 // origin at the feet, faces +z, 1.75 m. Parts are named by material: Skin, Hair, Tee
@@ -30,7 +31,6 @@ import { stripLightsAndCameras } from './props/gltf'
 // speed (the exported GLB carries no usable animation clips), without allocating per
 // frame. It's skipped entirely while the character is hidden.
 
-export const HUMAN_MODEL = '/models/rajan-v6.glb'
 
 const LEG = 0.83 // hip to ankle, metres
 const DEG = Math.PI / 180
@@ -46,8 +46,8 @@ const BODY_MATERIAL = new MeshStandardMaterial({ vertexColors: true, roughness: 
  * colors: { [materialName]: '#hex' } overrides. plaid: [base, line] check pattern on the
  * shirt (keeps the parts separate). shades: show the sunglasses. scale: size multiplier.
  */
-export default function RiggedHuman({ anim, colors, plaid, shades = true, scale = 1, castShadow = true }) {
-  const { scene } = useGLTF(HUMAN_MODEL)
+export default function RiggedHuman({ anim, colors, plaid, shades = true, scale = 1, castShadow = true, model: url = HUMAN_MODEL }) {
+  const { scene } = useGLTF(url)
   const root = useRef()
   const merge = !plaid
 
@@ -312,3 +312,4 @@ function plaidTexture(base, line) {
 }
 
 useGLTF.preload(HUMAN_MODEL)
+Object.values(WOMAN_MODELS).forEach((url) => useGLTF.preload(url))

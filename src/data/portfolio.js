@@ -41,6 +41,69 @@ export const extraSkills = {
 
 export const projects = [
   {
+    slug: 'arleen-builders',
+    title: 'Arleen Builders',
+    category: 'Construction / Business site',
+    description:
+      'Website for a Chennai builder (since 2007): construction, interiors and sports-court flooring, completed projects and a free-quote enquiry flow.',
+    stack: ['Responsive', 'Local SEO', 'Open Graph'],
+    url: 'https://arleen.vercel.app/',
+  },
+  {
+    slug: 'guna-steels',
+    title: 'Guna Steels',
+    category: 'Industrial / Manufacturer',
+    description:
+      'Site for a Tamil Nadu maker of sanitary SS 304 / 316L valves, fittings and purified-water systems for pharma and dairy plants.',
+    stack: ['Responsive', 'SEO', 'Product showcase'],
+    url: 'https://guna-steels.vercel.app/',
+  },
+  {
+    slug: 'guna-pharma',
+    title: 'Guna Pharma',
+    category: 'Industrial / Product catalogue',
+    description:
+      'Pharmaceutical stainless-steel engineering: a 96-product catalogue of valves, fittings and accessories, plus a five-stage build process.',
+    stack: ['Next.js', 'Catalogue', 'SEO'],
+    url: 'https://guna-phrma.vercel.app/',
+  },
+  {
+    slug: 'accounting-portal',
+    title: 'B.Com Accounting Student Portal',
+    category: 'Education / Web app',
+    description:
+      'Sign-in portal for a B.Com Accounting & Finance department: class timetable, attendance and department notices.',
+    stack: ['React', 'Vite', 'Auth'],
+    url: 'https://accounting-website-virid.vercel.app/',
+  },
+  {
+    slug: 'hapiwelkin',
+    title: 'HapiWelkin Creative Institute',
+    category: 'Education / Institute site',
+    description:
+      'Chennai institute (since 2014) for happiness, creativity and career readiness: Hapi, Crea, Wami, DEEP and the HapiCrea Universe lab.',
+    stack: ['Responsive', 'Programs', 'Testimonials'],
+    url: 'https://de-snowy-delta.vercel.app/',
+  },
+  {
+    slug: 'karuna-sanctuary',
+    title: 'Karuna Animal Sanctuary',
+    category: 'Non-profit / Giving platform',
+    description:
+      'Giving platform for a Coimbatore animal rescue: donate, sponsor, adopt or report a rescue, with urgent cases, campaigns and transparent fund breakdowns.',
+    stack: ['Donations', 'Campaigns', 'Responsive'],
+    url: 'https://de-f8yz.vercel.app/',
+  },
+  {
+    slug: 'smush',
+    title: 'smush — Home Bakery',
+    category: 'E-commerce / Food brand',
+    description:
+      'Shop for a Chennai small-batch bakery: fudgy brownies, brown-butter cookies and eggless tiramisu, baked daily.',
+    stack: ['Next.js', 'Shop', 'Brand design'],
+    url: 'https://smush-shop-br7l.vercel.app/',
+  },
+  {
     slug: 'saas-dashboard',
     title: 'AI SaaS Analytics Dashboard',
     category: 'SaaS / Analytics',

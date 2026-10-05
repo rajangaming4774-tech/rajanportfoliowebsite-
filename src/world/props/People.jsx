@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Color } from 'three'
 import RiggedHuman from '../RiggedHuman'
+import { WOMAN_MODELS } from '../humanModels'
 import { cached, hash, isClear } from './kit'
 
 // Chennai pedestrians: ~34 rigged GLB humans (RiggedHuman, recoloured per NPC into
@@ -50,6 +51,7 @@ function makeLook(i, role) {
     Shoes: pick(SHOES, 3),
   }
   let scale = 0.97 + R(1) * 0.07
+  let model
   const wear = (top, bottom, print = top) => {
     c.Tee = top
     c.Print = print
@@ -70,6 +72,7 @@ function makeLook(i, role) {
   }
   const woman = (kind) => {
     scale *= 0.94
+    model = WOMAN_MODELS[kind]
     c.Hair = R(26) < 0.12 ? '#9a958d' : pick(HAIRS, 5)
     const si = Math.floor(R(21) * SAREES.length)
     if (kind === 'saree') {
@@ -79,7 +82,8 @@ function makeLook(i, role) {
       const contrast = SAREES[(si + 3 + Math.floor(R(22) * 3)) % SAREES.length]
       wear(blouse, saree, R(24) < 0.3 ? contrast : blouse)
     } else {
-      wear(SAREES[si], pick(['#f4efe6', '#2a2f5a', '#e9e1c8', '#3a3f4a'], 25))
+      // kurta in a saree colour, plain pants, a contrasting dupatta
+      wear(SAREES[si], pick(['#f4efe6', '#2a2f5a', '#e9e1c8', '#3a3f4a'], 25), SAREES[(si + 2 + Math.floor(R(27) * 4)) % SAREES.length])
     }
   }
   const child = () => {
@@ -151,7 +155,7 @@ function makeLook(i, role) {
     default:
       man()
   }
-  return { colors: c, scale }
+  return { colors: c, scale, model }
 }
 
 /* ---------- placement: walking lanes ---------- */
@@ -206,13 +210,14 @@ function buildWorld() {
   const lanes = []
   const add = (role, x, z, yaw, mode = 'stand', o = {}) => {
     const i = npcs.length
-    const { colors, scale } = makeLook(i, role)
+    const { colors, scale, model } = makeLook(i, role)
     const idle = mode === 'stand' || mode === 'chat' || mode === 'pray'
     npcs.push({
       i,
       role,
       colors,
       scale,
+      model,
       animRef: { current: { speed: 0, grounded: true } },
       x,
       z,
@@ -462,7 +467,7 @@ export default function People({ playerPosRef }) {
             groups.current[n.i] = el
           }}
         >
-          <RiggedHuman anim={n.animRef} colors={n.colors} scale={n.scale} castShadow={false} shades={n.shades === true} />
+          <RiggedHuman model={n.model} anim={n.animRef} colors={n.colors} scale={n.scale} castShadow={false} shades={n.shades === true} />
         </group>
       ))}
     </group>
