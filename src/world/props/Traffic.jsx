@@ -1,8 +1,10 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { CuboidCollider, RigidBody } from '@react-three/rapier'
 import { cached, createKit, makeLabel } from './kit'
 import { KitMesh } from './KitMesh'
+import { approach, curveSpeed, filletPath, resetChassis, towRear, wrapAngle } from '../driving'
+import { playerState } from '../playerState'
 
 // Chennai traffic, modelled on photos of the real vehicles:
 //  - Bajaj RE auto rickshaw: rounded nose with one headlamp, curved windscreen,
@@ -18,59 +20,48 @@ const TYRE = '#161616'
 const HUB = '#b9bec3'
 const GLASS = '#2f4652'
 
-// A closed rounded-rectangle route. at(d) -> position + heading for distance d.
+// Closed rounded-rectangle routes along the lanes in zones.js. A vehicle's front axle
+// follows the lane; d increases forwards and `reverse` drives the loop the other way.
+// Chennai drives on the left: forwards keeps left on the city loop, and on the narrow
+// south loop (the two lanes of the main road) only `reverse` does.
 function makeLoop([x0, x1, z0, z1], r) {
-  const a = x1 - x0 - 2 * r
-  const b = z1 - z0 - 2 * r
-  const arc = (PI / 2) * r
-  const corner = (cx, cz, th) => [cx + r * Math.cos(th), cz + r * Math.sin(th), Math.sin(th), -Math.cos(th)]
-  const segs = [
-    [a, (s) => [x1 - r - s, z0, -1, 0]],
-    [arc, (s) => corner(x0 + r, z0 + r, -PI / 2 - s / r)],
-    [b, (s) => [x0, z0 + r + s, 0, 1]],
-    [arc, (s) => corner(x0 + r, z1 - r, PI - s / r)],
-    [a, (s) => [x0 + r + s, z1, 1, 0]],
-    [arc, (s) => corner(x1 - r, z1 - r, PI / 2 - s / r)],
-    [b, (s) => [x1, z1 - r - s, 0, -1]],
-    [arc, (s) => corner(x1 - r, z0 + r, -s / r)],
-  ]
-  const total = segs.reduce((n, [len]) => n + len, 0)
-  const base = (d) => {
-    let s = ((d % total) + total) % total
-    for (const [len, fn] of segs) {
-      if (s <= len) return fn(s)
-      s -= len
-    }
-    return segs[0][1](0)
-  }
-  return {
-    total,
-    at(d, reverse = false) {
-      const [x, z, hx, hz] = base(reverse ? total - d : d)
-      return { x, z, yaw: Math.atan2(hx, hz) + (reverse ? PI : 0) }
-    },
-  }
+  return filletPath(
+    [
+      { x: x1, z: z0 },
+      { x: x0, z: z0 },
+      { x: x0, z: z1 },
+      { x: x1, z: z1 },
+    ],
+    r,
+    true,
+  )
 }
 
-// Lanes sit inside the road rectangles in zones.js; the spawn junction stays clear.
 const CITY_LOOP = makeLoop([1.8, 29.6, -14, 26.5], 4)
 const MAIN_SOUTH_LOOP = makeLoop([-1.8, 1.8, 34, 58], 1.8)
 const LOOPS = { city: CITY_LOOP, south: MAIN_SOUTH_LOOP }
 
 /* ---------- wheels ---------- */
 
-// wheels: [{ x, z, r, w }] — axle centre, radius, tyre width. Rendered as separate meshes so they spin.
+// wheels: [{ x, z, r, w }]: axle centre, radius, tyre width. Separate meshes so they can
+// roll and steer. spin.current is either the distance rolled (all wheels alike) or
+// { front, rear, steer }: the distance rolled by each axle and the front wheels' steer angle.
 function Wheels({ wheels, spin }) {
   const group = useRef()
   useFrame(() => {
     if (!group.current || !spin) return
-    const rot = spin.current
-    for (const child of group.current.children) child.rotation.x = rot / child.userData.r
+    const sp = spin.current
+    const one = typeof sp === 'number'
+    for (const child of group.current.children) {
+      const { r, front } = child.userData
+      child.rotation.x = (one ? sp : front ? sp.front : sp.rear) / r
+      child.rotation.y = !one && front ? sp.steer : 0
+    }
   })
   return (
     <group ref={group}>
       {wheels.map((w, i) => (
-        <group key={i} position={[w.x, w.r, w.z]} userData={{ r: w.r }}>
+        <group key={i} position={[w.x, w.r, w.z]} rotation-order="YXZ" userData={{ r: w.r, front: w.z > 0 }}>
           <mesh rotation-z={PI / 2} castShadow>
             <cylinderGeometry args={[w.r, w.r, w.w, 18]} />
             <meshStandardMaterial color={TYRE} roughness={0.95} />
@@ -85,25 +76,151 @@ function Wheels({ wheels, spin }) {
   )
 }
 
-function Vehicle({ loop, speed, start = 0, reverse = false, size, wheels, children }) {
+/* ---------- driving ---------- */
+
+// Every driving vehicle registers here (per loop and direction) so the one behind can
+// keep its distance instead of driving through it.
+const traffic = new Map()
+const MIN_GAP = 2.5 // metres, bumper to bumper, when stopped
+const HEADWAY = 1.3 // seconds of following distance
+const LAT_ACCEL = 2.6 // m/s², comfortable cornering
+const MAX_STEER = 0.75 // radians
+
+function Vehicle({ loop, speed: cruise, start = 0, reverse = false, size, wheels, accel = 2, brake = 4.5, children }) {
+  const path = LOOPS[loop]
   const body = useRef()
-  const dist = useRef(start)
-  const spin = useRef(0)
-  const init = loop.at(start, reverse)
-  useFrame((_, dt) => {
+  const shell = useRef()
+  // Axles and bumpers relative to the body origin (+z forward).
+  const geo = useMemo(() => {
+    const zs = wheels.map((w) => w.z)
+    const frontZ = Math.max(...zs)
+    const rearZ = Math.min(...zs)
+    const halfLen = size[2] / 2
+    const cz = size[3] || 0
+    return {
+      frontZ,
+      wheelbase: frontZ - rearZ,
+      ahead: cz + halfLen - frontZ, // front axle → front bumper
+      behind: frontZ - (cz - halfLen), // front axle → rear bumper
+      halfWidth: size[0] / 2,
+    }
+  }, [wheels, size])
+  const spin = useRef({ front: 0, rear: 0, steer: 0 })
+  // Mutable driving state, created on first use and shared with the lane registry.
+  const stateRef = useRef(null)
+  const getState = () => {
+    if (!stateRef.current) {
+      const p = path.at(start)
+      const yaw = p.yaw + (reverse ? PI : 0)
+      stateRef.current = {
+        d: start,
+        dir: reverse ? -1 : 1,
+        v: cruise * 0.6,
+        geo,
+        chassis: resetChassis({}, p.x, p.z, yaw, geo.wheelbase),
+        pitch: 0,
+        roll: 0,
+      }
+    }
+    return stateRef.current
+  }
+
+  useEffect(() => {
+    const st = getState()
+    const key = `${loop}:${st.dir}`
+    if (!traffic.has(key)) traffic.set(key, new Set())
+    const lane = traffic.get(key)
+    lane.add(st)
+    return () => lane.delete(st)
+    // getState is stable for this vehicle's props
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loop])
+
+  useFrame((_, rawDt) => {
     const b = body.current
     if (!b) return
-    const step = speed * Math.min(dt, 0.05)
-    dist.current = (dist.current + step) % loop.total
-    spin.current += step
-    const p = loop.at(dist.current, reverse)
-    b.setNextKinematicTranslation({ x: p.x, y: 0, z: p.z })
-    b.setNextKinematicRotation({ x: 0, y: Math.sin(p.yaw / 2), z: 0, w: Math.cos(p.yaw / 2) })
+    const dt = Math.min(rawDt, 0.05)
+    const st = getState()
+    const sp = spin.current
+    const { dir, chassis } = st
+    const total = path.total
+
+    // 1. Slow down in time for the bends ahead.
+    let target = curveSpeed(path, st.d, dir, cruise, LAT_ACCEL, brake * 0.6)
+
+    // 2. Keep a time gap to the vehicle ahead in the same lane.
+    let lead = null
+    let leadGap = Infinity
+    for (const o of traffic.get(`${loop}:${dir}`) ?? []) {
+      if (o === st) continue
+      const along = ((((o.d - st.d) * dir) % total) + total) % total
+      const gap = along - o.geo.behind - geo.ahead
+      if (gap < leadGap) {
+        leadGap = gap
+        lead = o
+      }
+    }
+    if (lead) {
+      const want = MIN_GAP + lead.v * HEADWAY
+      const follow = lead.v + (leadGap - want) * 0.9
+      const safe = Math.sqrt(Math.max(0, 2 * brake * (leadGap - MIN_GAP)))
+      target = Math.min(target, Math.max(0, Math.min(follow, safe)))
+    }
+
+    // 3. Stop for Rajan when he's standing in the lane ahead.
+    if (playerState.active) {
+      const yaw0 = Math.atan2(chassis.fx - chassis.rx, chassis.fz - chassis.rz)
+      const hx = Math.sin(yaw0)
+      const hz = Math.cos(yaw0)
+      const px = playerState.x - chassis.fx
+      const pz = playerState.z - chassis.fz
+      const ahead = px * hx + pz * hz - geo.ahead
+      const side = Math.abs(px * hz - pz * hx)
+      if (ahead > -1 && ahead < 14 && side < geo.halfWidth + 0.7) {
+        target = Math.min(target, Math.sqrt(Math.max(0, 2 * brake * (ahead - 1.5))))
+      }
+    }
+
+    const prevV = st.v
+    st.v = approach(st.v, target, accel, brake, dt)
+    const step = st.v * dt
+    st.d = (((st.d + dir * step) % total) + total) % total
+
+    // 4. Front axle on the lane, rear axle towed behind it: no sideways slip.
+    const p = path.at(st.d)
+    const rx0 = chassis.rx
+    const rz0 = chassis.rz
+    const yaw = towRear(chassis, p.x, p.z, geo.wheelbase)
+    const laneYaw = p.yaw + (dir < 0 ? PI : 0)
+    sp.front += step
+    sp.rear += Math.hypot(chassis.rx - rx0, chassis.rz - rz0)
+    sp.steer = Math.max(-MAX_STEER, Math.min(MAX_STEER, wrapAngle(laneYaw - yaw)))
+
+    b.setNextKinematicTranslation({ x: p.x - Math.sin(yaw) * geo.frontZ, y: 0, z: p.z - Math.cos(yaw) * geo.frontZ })
+    b.setNextKinematicRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) })
+
+    // 5. Suspension: the nose dips under braking and lifts pulling away; the body leans
+    // out of bends. Only the body tilts; the wheels stay on the road.
+    const longAccel = (st.v - prevV) / Math.max(dt, 1e-3)
+    const latAccel = st.v * st.v * p.curv * dir
+    const k = 1 - Math.exp(-6 * dt)
+    st.pitch += (-longAccel * 0.012 - st.pitch) * k
+    st.roll += (latAccel * 0.014 - st.roll) * k
+    if (shell.current) shell.current.rotation.set(st.pitch, 0, st.roll)
   })
+
+  const init = path.at(start)
+  const initYaw = init.yaw + (reverse ? PI : 0)
   return (
-    <RigidBody ref={body} type="kinematicPosition" colliders={false} position={[init.x, 0, init.z]} rotation={[0, init.yaw, 0]}>
+    <RigidBody
+      ref={body}
+      type="kinematicPosition"
+      colliders={false}
+      position={[init.x - Math.sin(initYaw) * geo.frontZ, 0, init.z - Math.cos(initYaw) * geo.frontZ]}
+      rotation={[0, initYaw, 0]}
+    >
       <CuboidCollider args={[size[0] / 2, size[1] / 2, size[2] / 2]} position={[0, size[1] / 2, size[3] || 0]} />
-      {children}
+      <group ref={shell}>{children}</group>
       <Wheels wheels={wheels} spin={spin} />
     </RigidBody>
   )
@@ -172,7 +289,7 @@ export function MtcBus({ livery = 'ordinary', loop = 'city', speed = 6.5, start 
   const kit = cached(`bus-${livery}`, () => buildBus(livery))
   const tex = useMemo(() => makeLabel(L.route, { bg: L.boardBg, fg: L.boardFg, w: 256, h: 64, font: '700 44px sans-serif' }), [L])
   return (
-    <Vehicle loop={LOOPS[loop]} speed={speed} start={start} reverse={reverse} size={[2.5, 4.1, 10.2]} wheels={BUS_WHEELS}>
+    <Vehicle loop={loop} speed={speed} start={start} reverse={reverse} size={[2.5, 4.1, 10.2]} wheels={BUS_WHEELS} accel={1.1} brake={3.5}>
       <KitMesh kit={kit} />
       <mesh position={[0, 3.95, 5.17]}>
         <planeGeometry args={[1.4, 0.34]} />
@@ -241,7 +358,7 @@ const RICKSHAW_SIZE = [1.4, 2.0, 2.9, -0.1]
 export function DrivingRickshaw({ loop = 'city', start = 0, reverse = false, speed = 6.5 }) {
   const kit = cached('rickshaw', buildRickshaw)
   return (
-    <Vehicle loop={LOOPS[loop]} speed={speed} start={start} reverse={reverse} size={RICKSHAW_SIZE} wheels={AUTO_WHEELS}>
+    <Vehicle loop={loop} speed={speed} start={start} reverse={reverse} size={RICKSHAW_SIZE} wheels={AUTO_WHEELS} accel={1.7}>
       <KitMesh kit={kit} />
     </Vehicle>
   )
@@ -339,7 +456,7 @@ export function DrivingCar({ kind = 'silver', loop = 'city', start = 0, reverse 
   const kit = cached(`car-${kind}`, () => buildCar(CARS[kind]))
   const len = CARS[kind].sedan ? 4.4 : 3.8
   return (
-    <Vehicle loop={LOOPS[loop]} speed={speed} start={start} reverse={reverse} size={[1.8, 1.7, len]} wheels={CAR_WHEELS}>
+    <Vehicle loop={loop} speed={speed} start={start} reverse={reverse} size={[1.8, 1.7, len]} wheels={CAR_WHEELS} accel={2.4}>
       <KitMesh kit={kit} />
     </Vehicle>
   )

@@ -52,7 +52,7 @@ export default function CityMap() {
       <DrivingRickshaw loop="south" reverse speed={5} />
       <DrivingCar kind="silver" loop="city" start={30} speed={7.5} />
       <DrivingCar kind="red" loop="city" start={120} speed={7} />
-      <DrivingCar kind="taxi" loop="south" start={20} speed={6} />
+      <DrivingCar kind="taxi" loop="south" start={20} reverse speed={6} />
       <ParkedCar kind="blue" position={[-9, 0, 17]} rotation={1.5} />
       <ParkedCar kind="silver" position={[23, 0, -8]} rotation={0.1} />
       <ParkedRickshaw position={[5.6, 0, -4]} rotation={0.05} />

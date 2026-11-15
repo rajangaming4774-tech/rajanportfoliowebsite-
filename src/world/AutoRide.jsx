@@ -1,28 +1,29 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RickshawModel } from './props/Traffic'
+import { approach, curveSpeed, resetChassis, towRear, wrapAngle } from './driving'
 
 // The player's auto. Driven entirely by rideRef.current:
 //   { phase: 'arriving' | 'asking' | 'riding' | 'dropoff' | null, from, stop, route, dist, speed, x, z, yaw, skip, t }
 // arriving: pulls up beside the player · asking: waits while the driver asks where to
 // riding: follows the planned road route · dropoff: parks briefly after arrival.
 
-const TOP_SPEED = 15
-const ACCEL = 9
-const BRAKE = 7
-const ARRIVE_S = 1.3
+// A Bajaj RE: ~45 km/h flat out in town, modest pick-up, takes bends at a sane pace.
+const TOP_SPEED = 12.5
+const ACCEL = 2.8
+const BRAKE = 4.5
+const LAT_ACCEL = 3
+// Front wheel / rear axle relative to the body origin (see AUTO_WHEELS in Traffic.jsx).
+export const AUTO_FRONT_AXLE = 1.15
+const WHEELBASE = 1.9
+const ARRIVE_S = 2.6
 const DROPOFF_S = 1.4
-
-const lerpAngle = (a, b, t) => {
-  let d = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI
-  if (d < -Math.PI) d += Math.PI * 2
-  return a + d * t
-}
 
 export default function AutoRide({ rideRef, onPickedUp, onArrive, onGone }) {
   const group = useRef()
   const shell = useRef()
-  const wheelSpin = useRef(0)
+  const wheelSpin = useRef({ front: 0, rear: 0, steer: 0 })
+  const chassis = useRef({})
 
   useFrame((state, rawDt) => {
     const ride = rideRef.current
@@ -34,33 +35,61 @@ export default function AutoRide({ rideRef, onPickedUp, onArrive, onGone }) {
     const dt = Math.min(rawDt, 0.05)
     g.visible = true
 
+    const spin = wheelSpin.current
     if (ride.phase === 'arriving') {
+      const x0 = ride.x
+      const z0 = ride.z
+      // Steady braking to a stop beside Rajan (a quadratic ease-out is constant
+      // deceleration): ~39 km/h at 14 m out, ~4 m/s² of braking.
       ride.t = Math.min(1, ride.t + dt / ARRIVE_S)
-      const e = 1 - (1 - ride.t) ** 3
+      const e = 1 - (1 - ride.t) ** 2
       ride.x = ride.from.x + (ride.stop.x - ride.from.x) * e
       ride.z = ride.from.z + (ride.stop.z - ride.from.z) * e
+      // the wheels roll as it pulls up (they used to stay still)
+      const moved = Math.hypot(ride.x - x0, ride.z - z0)
+      spin.front += moved
+      spin.rear += moved
+      spin.steer = 0
       if (ride.t >= 1) {
         ride.phase = 'asking'
         onPickedUp()
       }
     } else if (ride.phase === 'riding') {
       const { route } = ride
+      const c = chassis.current
+      if (ride.chassisFor !== route) {
+        // the route starts at the front wheel; the rear axle is behind it on the auto's heading
+        resetChassis(c, ride.x + Math.sin(ride.yaw) * AUTO_FRONT_AXLE, ride.z + Math.cos(ride.yaw) * AUTO_FRONT_AXLE, ride.yaw, WHEELBASE)
+        ride.chassisFor = route
+      }
       if (ride.skip) {
         ride.dist = route.total
         ride.skip = false
       }
       const remaining = route.total - ride.dist
-      const brakeCap = Math.sqrt(2 * BRAKE * Math.max(remaining, 0)) + 0.8
-      ride.speed = Math.min(ride.speed + ACCEL * dt, TOP_SPEED, brakeCap)
+      const target = Math.min(
+        curveSpeed(route, ride.dist, 1, TOP_SPEED, LAT_ACCEL, BRAKE),
+        Math.sqrt(2 * BRAKE * Math.max(remaining, 0)) + 0.4,
+      )
+      ride.speed = approach(ride.speed, target, ACCEL, BRAKE * 1.3, dt)
+      const prevDist = ride.dist
       ride.dist = Math.min(route.total, ride.dist + ride.speed * dt)
-      wheelSpin.current += ride.speed * dt
       const p = route.at(ride.dist)
-      ride.x = p.x
-      ride.z = p.z
-      ride.yaw = lerpAngle(ride.yaw, p.yaw, 1 - Math.exp(-8 * dt))
+      // Front wheel on the route, rear axle towed behind: it turns through the bend
+      // without sliding sideways.
+      const rx0 = c.rx
+      const rz0 = c.rz
+      ride.yaw = towRear(c, p.x, p.z, WHEELBASE)
+      spin.front += ride.dist - prevDist
+      spin.rear += Math.hypot(c.rx - rx0, c.rz - rz0)
+      spin.steer = Math.max(-0.75, Math.min(0.75, wrapAngle(p.yaw - ride.yaw)))
+      ride.x = p.x - Math.sin(ride.yaw) * AUTO_FRONT_AXLE
+      ride.z = p.z - Math.cos(ride.yaw) * AUTO_FRONT_AXLE
       if (ride.dist >= route.total) {
         ride.phase = 'dropoff'
         ride.t = 0
+        ride.speed = 0
+        spin.steer = 0
         onArrive()
       }
     } else if (ride.phase === 'dropoff') {

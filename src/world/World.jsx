@@ -8,7 +8,7 @@ import Player from './Player'
 import Hud from './Hud'
 import Panel from './ui/Panel'
 import { AutoDialog, ArrivalToast, RideStatus } from './ui/AutoDialog'
-import AutoRide from './AutoRide'
+import AutoRide, { AUTO_FRONT_AXLE } from './AutoRide'
 import { OUTFITS } from './outfits'
 import { planRoute } from './ride'
 import PerfMonitor from './PerfMonitor'
@@ -125,7 +125,9 @@ export default function World({ onTerminal, onClassic }) {
     const target = ZONES.find((z) => z.id === id)
     const r = rideRef.current
     if (!target || r.phase !== 'asking') return
-    const route = planRoute({ x: r.x, z: r.z }, landingSpot(target), target.via)
+    // The route starts at the auto's front wheel, which is what follows it.
+    const front = { x: r.x + Math.sin(r.yaw) * AUTO_FRONT_AXLE, z: r.z + Math.cos(r.yaw) * AUTO_FRONT_AXLE }
+    const route = planRoute(front, landingSpot(target), target.via)
     Object.assign(r, { phase: 'riding', route, dist: 0, speed: 0, skip: false, target })
     setRide({ phase: 'riding', target })
   }, [])

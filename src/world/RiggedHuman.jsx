@@ -35,6 +35,9 @@ import { HUMAN_MODEL, WOMAN_MODELS } from './humanModels'
 
 
 const LEG = 0.83 // hip to ankle, metres
+const THIGH = 0.42 // hip to knee
+const SHIN = 0.41 // knee to ankle
+const MAX_REACH = 0.62 // furthest the foot gets ahead of / behind the hip
 const DEG = Math.PI / 180
 
 // GLTFLoader strips '.' from node names: 'UpperLeg.L' → 'UpperLegL'.
@@ -115,7 +118,7 @@ export default function RiggedHuman({ anim, colors, plaid, shades = true, scale 
         up: bone.parent ? new Vector3(0, 1, 0).applyQuaternion(toModel(bone.parent).invert()) : new Vector3(0, 1, 0),
       }
     }
-    rig.current = { bones, q: new Quaternion(), phase: Math.random() * Math.PI * 2, run: 0, air: 0, airTime: 0, move: 0, t: Math.random() * 10 }
+    rig.current = { bones, q: new Quaternion(), phase: Math.random(), legL: {}, legR: {}, run: 0, air: 0, airTime: 0, move: 0, t: Math.random() * 10 }
     return () => {
       for (const b of Object.values(bones)) {
         b.bone.quaternion.copy(b.rest)
@@ -128,38 +131,44 @@ export default function RiggedHuman({ anim, colors, plaid, shades = true, scale 
   useFrame((_, rawDt) => {
     const r = rig.current
     if (!r || !isShown(root.current)) return
-    const dt = Math.min(rawDt, 0.1)
+    // Same cap as the code that moves the characters, so the legs never outrun the body.
+    const dt = Math.min(rawDt, 0.05)
     const a = anim?.current
     const speed = a?.speed ?? 0
     const grounded = a?.grounded ?? true
     r.t += dt
     const k = 1 - Math.exp(-10 * dt)
-    r.move += ((speed > 0.2 ? 1 : 0) - r.move) * k
-    r.run += ((speed > 3.2 ? 1 : 0) - r.run) * k
+    // Gait is judged at the character's own size: a child at 0.65 scale moving at 2 m/s is
+    // going as fast, relative to its legs, as an adult at ~3 m/s.
+    const rel = speed / scale
+    r.move += ((speed > 0.15 ? 1 : 0) - r.move) * k
+    r.run += ((rel > 3.2 ? 1 : 0) - r.run) * k
     // Only a real jump/fall counts as airborne: the ground check flickers for a frame or
     // two on kerbs and road edges, and that must not flash the jump pose mid-stride.
     r.airTime = grounded ? 0 : r.airTime + dt
     r.air += ((r.airTime > 0.18 ? 1 : 0) - r.air) * (1 - Math.exp(-12 * dt))
 
-    // Gait parameters blend from walk to run.
-    const amp = 26 + 18 * r.run // thigh swing, degrees
-    const knee = 42 + 50 * r.run // swing-phase knee flex
-    const armAmp = 22 + 30 * r.run
-    const lean = 3 + 9 * r.run
-    // Advance the cycle by distance travelled: one cycle = two steps.
-    const stride = 4 * LEG * Math.sin(amp * DEG)
-    r.phase += (speed / stride) * Math.PI * 2 * dt
-    const s = Math.sin(r.phase)
+    // ---- Gait: a stance / swing cycle per leg (one cycle = two steps) ----
+    // While a foot is planted (stance), it moves backwards under the hips at exactly the
+    // body's speed, so it stays put on the ground; then it lifts and swings forward.
+    // Walking: each foot is down ~60% of the cycle (both feet down at the hand-over);
+    // steps lengthen with speed (~100 steps/min at 1.2 m/s, ~135 at a brisk 1.9 m/s).
+    // Running: stance ~27% with a flight phase, at a natural cadence (~185 steps/min).
+    const run = r.run
+    const duty = 0.6 + (0.27 - 0.6) * run // fraction of the cycle a foot is planted
+    const walkReach = LEG * Math.sin(Math.min(38, Math.max(20, 14 + 12.5 * rel)) * DEG) // half a step, model units
+    const walkRate = rel > 0.05 ? (rel * duty) / (2 * walkReach) : 0 // cycles per second
+    const runRate = 1.25 + 0.05 * rel
+    const rate = walkRate + (runRate - walkRate) * run
+    r.phase = (r.phase + rate * dt) % 1
+    // Reach that makes the planted foot keep pace with the ground at this rate and size.
+    const reach = rate > 0 ? Math.min(MAX_REACH, (rel * duty) / (2 * rate)) : 0
+    const swingKnee = 58 + 42 * run // knee bend at mid-swing, degrees
+    const stanceKnee = 6 + 22 * run // softer knee on the planted leg when running
     const air = r.air
     const m = r.move * (1 - air)
     const idle = 1 - r.move
     const breath = Math.sin(r.t * 1.9)
-    // Left leg leads when s > 0. Its swing runs from toe-off (phase -90°) to heel strike
-    // (+90°); the knee flexes most early in the swing, peaking at phase -30°.
-    const sw = Math.cos(r.phase + Math.PI / 6)
-    const kneeL = (knee * pos(sw) ** 1.5 + 5) * m + 4
-    const kneeR = (knee * pos(-sw) ** 1.5 + 5) * m + 4
-    const elbow = 10 + 25 * r.run
     const ja = air // airborne blend: one knee tucked, arms up
 
     const set = (name, fwd, twist, out, down = true) => {
@@ -174,25 +183,80 @@ export default function RiggedHuman({ anim, colors, plaid, shades = true, scale 
     }
     const mix = (v, jump) => v * (1 - ja) + jump * ja
 
-    set('UpperLegL', mix(amp * s * m, 50), 0, 0)
-    set('UpperLegR', mix(-amp * s * m, -15), 0, 0)
-    set('LowerLegL', mix(-kneeL, -75), 0, 0)
-    set('LowerLegR', mix(-kneeR, -35), 0, 0)
-    set('FootL', (12 * pos(s) - 10 * pos(-s) * pos(-sw)) * m, 0, 0)
-    set('FootR', (12 * pos(-s) - 10 * pos(s) * pos(sw)) * m, 0, 0)
-    set('UpperArmL', mix(-armAmp * s * m + breath * 1.5 * idle, 130), 0, mix(6 + 2 * idle, 25))
-    set('UpperArmR', mix(armAmp * s * m - breath * 1.5 * idle, 110), 0, mix(6 + 2 * idle, 25))
-    set('LowerArmL', mix(12 + elbow * pos(-s) * m, 25), 0, 0)
-    set('LowerArmR', mix(12 + elbow * pos(s) * m, 35), 0, 0)
-    set('Spine', mix(lean * m + breath * 1.2 * idle, 8), 6 * s * m, 0, false)
-    set('Head', -lean * 0.6 * m - breath * idle, -4 * s * m + Math.sin(r.t * 0.5) * 8 * idle, 0, false)
+    // One leg at cycle position u: foot offset (forward of the hip), knee bend, thigh
+    // angle (from the two-bone leg: the ankle sits `x` ahead of the hip), sole angle.
+    const leg = (u, out) => {
+      let x
+      let knee
+      let stance
+      if (u < duty) {
+        stance = true
+        x = reach * (1 - (2 * u) / duty) // heel strike in front → toe-off behind, at body speed
+        knee = stanceKnee
+      } else {
+        stance = false
+        const w = (u - duty) / (1 - duty) // swing progress
+        x = -reach + 2 * reach * (w * w * (3 - 2 * w))
+        knee = stanceKnee + (swingKnee - stanceKnee) * Math.sin(Math.PI * Math.min(1, w * 1.15))
+      }
+      const k = knee * DEG
+      const D = Math.sqrt(THIGH * THIGH + SHIN * SHIN + 2 * THIGH * SHIN * Math.cos(k)) // hip → ankle
+      const delta = Math.atan2(SHIN * Math.sin(k), THIGH + SHIN * Math.cos(k))
+      const xs = Math.max(-0.95 * D, Math.min(0.95 * D, x))
+      const thigh = Math.asin(xs / D) + delta
+      out.thigh = (thigh / DEG) * m
+      out.knee = knee * m + 4 * (1 - m)
+      // Sole flat on the ground while planted; toes lift as the foot swings through.
+      const flat = (k - thigh) / DEG
+      out.foot = (stance ? flat : flat * 0.5 + 12) * m
+      out.height = stance ? Math.sqrt(D * D - xs * xs) : Infinity // hip height this leg allows
+      out.x = x
+    }
+    leg(r.phase, r.legL)
+    leg((r.phase + 0.5) % 1, r.legR)
+    const L = r.legL
+    const R = r.legR
 
-    // Hips dip at the double-support moments so the planted foot stays on the ground,
-    // plus a little bounce in the run.
+    set('UpperLegL', mix(L.thigh, 50), 0, 0)
+    set('UpperLegR', mix(R.thigh, -15), 0, 0)
+    set('LowerLegL', mix(-L.knee, -75), 0, 0)
+    set('LowerLegR', mix(-R.knee, -35), 0, 0)
+    set('FootL', L.foot, 0, 0)
+    set('FootR', R.foot, 0, 0)
+
+    // Arms swing against the legs (left arm forward with the right foot); elbows bend
+    // more as the pace picks up. Torso twists with the stride, head stays steady.
+    const swing = Math.cos(2 * Math.PI * r.phase) // +1 when the left foot is in front
+    const armAmp = 12 + 9 * Math.min(rel, 2) + 30 * run
+    const elbow = 10 + 25 * run
+    set('UpperArmL', mix(-armAmp * swing * m + breath * 1.5 * idle, 130), 0, mix(6 + 2 * idle, 25))
+    set('UpperArmR', mix(armAmp * swing * m - breath * 1.5 * idle, 110), 0, mix(6 + 2 * idle, 25))
+    set('LowerArmL', mix(12 + elbow * pos(-swing) * m, 25), 0, 0)
+    set('LowerArmR', mix(12 + elbow * pos(swing) * m, 35), 0, 0)
+    const lean = 3 + 9 * run
+    set('Spine', mix(lean * m + breath * 1.2 * idle, 8), 6 * swing * m, 0, false)
+    set('Head', -lean * 0.6 * m - breath * idle, -4 * swing * m + Math.sin(r.t * 0.5) * 8 * idle, 0, false)
+
+    // Hips ride at the height the lower leg allows, so the planted foot stays exactly on
+    // the ground: worked out from the angles actually applied this frame (including the
+    // blend in and out of walking), so feet never sink into the pavement or hover.
+    // In the run's flight phase the body rises a little between steps.
     const hips = r.bones.Hips
     if (hips) {
-      const drop = LEG * (1 - Math.cos(amp * DEG))
-      const bob = (-drop + 0.12 * r.run) * (0.5 - 0.5 * Math.cos(2 * r.phase)) * m + breath * 0.003 * idle
+      const reachDown = (thighDeg, kneeDeg) =>
+        THIGH * Math.cos(thighDeg * DEG) + SHIN * Math.cos((thighDeg - kneeDeg) * DEG)
+      let h = Math.max(reachDown(L.thigh, L.knee), reachDown(R.thigh, R.knee))
+      if (L.height === Infinity && R.height === Infinity) {
+        // Both feet in the air (running): the body keeps its take-off / landing height
+        // and rises a little through the flight, instead of following the tucked legs.
+        // same leg geometry as in leg(): hip → ankle length with the stance knee bend
+        const kc = stanceKnee * DEG
+        const Dc = Math.sqrt(THIGH * THIGH + SHIN * SHIN + 2 * THIGH * SHIN * Math.cos(kc))
+        const contact = LEG + (Math.sqrt(Math.max(0, Dc * Dc - reach * reach)) - LEG) * m
+        const f = ((((r.phase - duty) % 0.5) + 0.5) % 0.5) / (0.5 - duty)
+        h = contact + 0.05 * Math.sin(Math.PI * Math.min(1, Math.max(0, f))) * m
+      }
+      const bob = (h - LEG) * (1 - ja) + breath * 0.003 * idle
       hips.bone.position.copy(hips.restPos).addScaledVector(hips.up, bob)
     }
   })

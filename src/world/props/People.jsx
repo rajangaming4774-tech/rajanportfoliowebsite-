@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { Color } from 'three'
 import RiggedHuman from '../RiggedHuman'
 import { WOMAN_MODELS } from '../humanModels'
+import { playerState } from '../playerState'
 import { cached, hash, isClear } from './kit'
 
 // Chennai pedestrians: ~34 rigged GLB humans (RiggedHuman, recoloured per NPC into
@@ -371,7 +372,7 @@ function animate(n, g, t, dt, pl) {
   const sd = n.r * 20
   const a = n.animRef.current
   a.grounded = true
-  a.speed = st && n.mv > 0.3 ? st.speed : 0
+  a.speed = st ? st.v ?? 0 : 0
 
   let yaw = n.yaw + n.yawOff
   let y = 0
@@ -395,22 +396,31 @@ function animate(n, g, t, dt, pl) {
   g.rotation.set(lean, yaw, roll)
 }
 
+const WALK_ACCEL = 2.2 // m/s²: about half a second from standing to walking pace
+
 function updateLane(st, dt) {
+  let target = st.speed
   if (st.hold > 0) {
     st.hold -= dt
-    st.moving = false
-    return
-  }
-  if (st.wait > 0) {
+    target = 0
+  } else if (st.wait > 0) {
     st.wait -= dt
-    st.moving = false
-    return
+    target = 0
   }
-  st.moving = true
-  st.s += st.dir * st.speed * dt
-  const end = st.s > st.len ? st.len : st.s < 0 ? 0 : null
+  // Slow down for the end of the pavement (plus a little crawl so they actually
+  // arrive), then stop, pause and turn round.
+  const toEnd = st.dir > 0 ? st.len - st.s : st.s
+  target = Math.min(target, Math.sqrt(2 * WALK_ACCEL * Math.max(0, toEnd)) + 0.15)
+  st.v ??= 0
+  st.v = target > st.v ? Math.min(target, st.v + WALK_ACCEL * dt) : Math.max(target, st.v - WALK_ACCEL * 1.6 * dt)
+  st.moving = st.v > 0.05
+  if (!st.moving) return
+  st.s += st.dir * st.v * dt
+  const end = st.s >= st.len ? st.len : st.s <= 0 ? 0 : null
   if (end !== null) {
     st.s = end
+    st.v = 0
+    st.moving = false
     st.dir = -st.dir
     st.k += 1
     st.wait = 0.8 + hash(st.id * 7 + st.k, 68) * 3.2
@@ -441,7 +451,7 @@ export default function People({ playerPosRef }) {
     const dt = Math.min(delta, 0.05)
     const t = state.clock.elapsedTime
     const cam = state.camera.position
-    const pl = playerXZ(playerPosRef)
+    const pl = playerPosRef ? playerXZ(playerPosRef) : playerState.active ? playerState : null
     for (const st of world.lanes) {
       const px = st.ax + st.ux * st.s
       const pz = st.az + st.uz * st.s

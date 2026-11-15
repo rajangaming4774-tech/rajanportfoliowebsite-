@@ -1,9 +1,11 @@
 import { ROADS } from './zones'
+import { filletPath } from './driving'
 
 // Auto-rickshaw routing: drive along the road centre lines from zones.js,
 // shortest path through the junctions, keeping to the left lane like in India.
 
 const LANE = 1.6 // metres left of the centre line
+const CORNER_RADIUS = 4.5
 
 // Each road rectangle becomes a centre line running along its long side.
 const LINES = ROADS.map(([cx, cz, w, l]) =>
@@ -95,7 +97,7 @@ function keepLeft(points) {
 /**
  * Route from `from` to `to` ({x, z}) via the roads, then through optional off-road
  * waypoints `via` ([[x, z], ...]) for places the road network doesn't reach.
- * at(d) → { x, z, yaw }.
+ * at(d) → { x, z, yaw, curv }.
  */
 export function planRoute(from, to, via = []) {
   const stops = via.map(([x, z]) => ({ x, z }))
@@ -104,22 +106,7 @@ export function planRoute(from, to, via = []) {
     (p, i, arr) => i === 0 || dist(p, arr[i - 1]) > 0.05,
   )
   const points = keepLeft(raw)
-  const cumulative = [0]
-  for (let i = 1; i < points.length; i++) cumulative.push(cumulative[i - 1] + dist(points[i - 1], points[i]))
-  const total = cumulative[cumulative.length - 1]
-
-  return {
-    points,
-    total,
-    at(d) {
-      const s = clamp(d, 0, total)
-      let i = 1
-      while (i < points.length - 1 && cumulative[i] < s) i++
-      const a = points[i - 1]
-      const b = points[i] ?? a
-      const seg = cumulative[i] - cumulative[i - 1] || 1
-      const t = (s - cumulative[i - 1]) / seg
-      return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, yaw: Math.atan2(b.x - a.x, b.z - a.z) }
-    },
-  }
+  // Round the corners into arcs so the auto turns through a bend instead of pivoting
+  // on the spot; at(d) also reports the curvature for slowing down.
+  return filletPath(points, CORNER_RADIUS)
 }

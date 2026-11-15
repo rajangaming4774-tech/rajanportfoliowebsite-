@@ -6,8 +6,9 @@ import { Vector3 } from 'three'
 import CharacterModel from './CharacterModel'
 import { SPAWN, findZone } from './zones'
 import { CAMERA_RAY } from './collision'
+import { playerState } from './playerState'
 
-const WALK_SPEED = 2.4 // brisk walk; the Walk clip plays at ~1.6x
+const WALK_SPEED = 1.9 // a brisk walk (an average stroll is ~1.4 m/s)
 const RUN_SPEED = 6.5 // Shift: running
 const JUMP_VELOCITY = 6.8
 const HALF_HEIGHT = 0.5
@@ -147,6 +148,9 @@ export default function Player({ inputRef, camRef, uiRef, rideRef, playerPosRef,
 
     playerPosRef.current.x = t.x
     playerPosRef.current.z = t.z
+    playerState.x = t.x
+    playerState.z = t.z
+    playerState.active = !seated
 
     const zone = findZone(t.x, t.z)
     const id = zone?.id ?? null
