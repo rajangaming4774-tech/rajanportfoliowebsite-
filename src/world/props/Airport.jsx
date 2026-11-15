@@ -92,10 +92,12 @@ export function Airport({ position }) {
         <pointLight position={[0, H - 1.5, 0]} color="#fff3dc" intensity={16} distance={34} />
       </Body>
 
+      {/* Taxi rank: 4.4 m sedans parked nose to tail with ~0.5 m between bumpers
+          (they were 3.5 m apart and overlapped by almost a metre). */}
       {[
-        [x - 6, z + 23.5, 0.02],
-        [x - 2.5, z + 23.9, -0.04],
-        [x + 1, z + 23.5, 0.03],
+        [x - 7.6, z + 23.5, 0.02],
+        [x - 2.7, z + 23.9, -0.04],
+        [x + 2.2, z + 23.5, 0.03],
         [x + 14, z + 23.6, -0.02],
       ].map(([tx, tz, rot], i) => (
         <ParkedCar key={i} kind="taxi" position={[tx, 0, tz]} rotation={rot + PI / 2} />

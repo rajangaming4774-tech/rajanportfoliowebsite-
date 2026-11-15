@@ -10,6 +10,7 @@ import { playerState } from './playerState'
 
 const WALK_SPEED = 1.9 // a brisk walk (an average stroll is ~1.4 m/s)
 const RUN_SPEED = 6.5 // Shift: running
+const MAX_ACCEL = 12 // m/s², on the ground
 const JUMP_VELOCITY = 6.8
 const HALF_HEIGHT = 0.5
 const RADIUS = 0.35
@@ -109,9 +110,19 @@ export default function Player({ inputRef, camRef, uiRef, rideRef, playerPosRef,
     const targetZ = (-cos * f - sin * r) * speed
 
     // Ease towards the target velocity: snappy on the ground, floaty in the air.
+    // Capped at MAX_ACCEL so breaking into a sprint takes about half a second instead of
+    // lurching to full speed in one or two frames.
     const accel = 1 - Math.exp(-(grounded ? 14 : 3) * dt)
-    const vx = v.x + (targetX - v.x) * accel
-    const vz = v.z + (targetZ - v.z) * accel
+    let dvx = (targetX - v.x) * accel
+    let dvz = (targetZ - v.z) * accel
+    const dv = Math.hypot(dvx, dvz)
+    const maxDv = MAX_ACCEL * dt
+    if (dv > maxDv) {
+      dvx *= maxDv / dv
+      dvz *= maxDv / dv
+    }
+    const vx = v.x + dvx
+    const vz = v.z + dvz
     let vy = v.y
 
     const wantsJump = !locked && input.jump

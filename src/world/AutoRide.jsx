@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RickshawModel } from './props/Traffic'
 import { approach, curveSpeed, resetChassis, towRear, wrapAngle } from './driving'
+import { junctionEntries, signalSpeed } from './trafficLights'
 
 // The player's auto. Driven entirely by rideRef.current:
 //   { phase: 'arriving' | 'asking' | 'riding' | 'dropoff' | null, from, stop, route, dist, speed, x, z, yaw, skip, t }
@@ -16,6 +17,7 @@ const LAT_ACCEL = 3
 // Front wheel / rear axle relative to the body origin (see AUTO_WHEELS in Traffic.jsx).
 export const AUTO_FRONT_AXLE = 1.15
 const WHEELBASE = 1.9
+const AUTO_NOSE = 0.2 // front wheel → front bumper
 const ARRIVE_S = 2.6
 const DROPOFF_S = 1.4
 
@@ -61,6 +63,7 @@ export default function AutoRide({ rideRef, onPickedUp, onArrive, onGone }) {
         // the route starts at the front wheel; the rear axle is behind it on the auto's heading
         resetChassis(c, ride.x + Math.sin(ride.yaw) * AUTO_FRONT_AXLE, ride.z + Math.cos(ride.yaw) * AUTO_FRONT_AXLE, ride.yaw, WHEELBASE)
         ride.chassisFor = route
+        ride.signals = junctionEntries(route) // the auto stops at red lights too
       }
       if (ride.skip) {
         ride.dist = route.total
@@ -70,6 +73,7 @@ export default function AutoRide({ rideRef, onPickedUp, onArrive, onGone }) {
       const target = Math.min(
         curveSpeed(route, ride.dist, 1, TOP_SPEED, LAT_ACCEL, BRAKE),
         Math.sqrt(2 * BRAKE * Math.max(remaining, 0)) + 0.4,
+        signalSpeed(ride.signals, route, ride.dist, 1, AUTO_NOSE, ride.speed, BRAKE * 0.8, state.clock.elapsedTime),
       )
       ride.speed = approach(ride.speed, target, ACCEL, BRAKE * 1.3, dt)
       const prevDist = ride.dist

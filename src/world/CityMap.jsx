@@ -10,6 +10,7 @@ import { DrivingCar, DrivingRickshaw, MtcBus, ParkedCar, ParkedRickshaw } from '
 import { Airport, Planes } from './props/Airport'
 import Streetscape from './props/Streetscape'
 import Ambience from './audio/Ambience'
+import TrafficLights from './props/TrafficLights'
 import People from './props/People'
 
 // Stylised low-poly Chennai in natural daylight. Landmarks, street furniture and traffic
@@ -29,6 +30,7 @@ export default function CityMap() {
       <Streetscape />
       <Roads />
       <Lamps />
+      <TrafficLights />
       <Palms />
 
       <Airport position={[8, 0, -56]} />

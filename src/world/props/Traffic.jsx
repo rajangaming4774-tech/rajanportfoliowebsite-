@@ -5,6 +5,7 @@ import { cached, createKit, makeLabel } from './kit'
 import { KitMesh } from './KitMesh'
 import { approach, curveSpeed, filletPath, resetChassis, towRear, wrapAngle } from '../driving'
 import { playerState } from '../playerState'
+import { junctionEntries, signalSpeed } from '../trafficLights'
 
 // Chennai traffic, modelled on photos of the real vehicles:
 //  - Bajaj RE auto rickshaw: rounded nose with one headlamp, curved windscreen,
@@ -81,6 +82,8 @@ function Wheels({ wheels, spin }) {
 // Every driving vehicle registers here (per loop and direction) so the one behind can
 // keep its distance instead of driving through it.
 const traffic = new Map()
+// Dev-only handle for inspecting the traffic from the browser console.
+if (import.meta.env.DEV) window.__traffic = { traffic, LOOPS }
 const MIN_GAP = 2.5 // metres, bumper to bumper, when stopped
 const HEADWAY = 1.3 // seconds of following distance
 const LAT_ACCEL = 2.6 // m/s², comfortable cornering
@@ -106,6 +109,8 @@ function Vehicle({ loop, speed: cruise, start = 0, reverse = false, size, wheels
     }
   }, [wheels, size])
   const spin = useRef({ front: 0, rear: 0, steer: 0 })
+  // Where this lane enters each junction (for the traffic lights).
+  const entries = useMemo(() => junctionEntries(path, reverse ? -1 : 1), [path, reverse])
   // Mutable driving state, created on first use and shared with the lane registry.
   const stateRef = useRef(null)
   const getState = () => {
@@ -118,6 +123,7 @@ function Vehicle({ loop, speed: cruise, start = 0, reverse = false, size, wheels
         v: cruise * 0.6,
         geo,
         chassis: resetChassis({}, p.x, p.z, yaw, geo.wheelbase),
+        loop,
         pitch: 0,
         roll: 0,
       }
@@ -136,7 +142,7 @@ function Vehicle({ loop, speed: cruise, start = 0, reverse = false, size, wheels
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loop])
 
-  useFrame((_, rawDt) => {
+  useFrame((frame, rawDt) => {
     const b = body.current
     if (!b) return
     const dt = Math.min(rawDt, 0.05)
@@ -148,7 +154,10 @@ function Vehicle({ loop, speed: cruise, start = 0, reverse = false, size, wheels
     // 1. Slow down in time for the bends ahead.
     let target = curveSpeed(path, st.d, dir, cruise, LAT_ACCEL, brake * 0.6)
 
-    // 2. Keep a time gap to the vehicle ahead in the same lane.
+    // 2. Stop at the line on red (and on amber when there's room to stop comfortably).
+    target = Math.min(target, signalSpeed(entries, path, st.d, dir, geo.ahead, st.v, brake * 0.8, frame.clock.elapsedTime))
+
+    // 3. Keep a time gap to the vehicle ahead in the same lane.
     let lead = null
     let leadGap = Infinity
     for (const o of traffic.get(`${loop}:${dir}`) ?? []) {
@@ -167,7 +176,7 @@ function Vehicle({ loop, speed: cruise, start = 0, reverse = false, size, wheels
       target = Math.min(target, Math.max(0, Math.min(follow, safe)))
     }
 
-    // 3. Stop for Rajan when he's standing in the lane ahead.
+    // 4. Stop for Rajan when he's standing in the lane ahead.
     if (playerState.active) {
       const yaw0 = Math.atan2(chassis.fx - chassis.rx, chassis.fz - chassis.rz)
       const hx = Math.sin(yaw0)
@@ -186,7 +195,7 @@ function Vehicle({ loop, speed: cruise, start = 0, reverse = false, size, wheels
     const step = st.v * dt
     st.d = (((st.d + dir * step) % total) + total) % total
 
-    // 4. Front axle on the lane, rear axle towed behind it: no sideways slip.
+    // 5. Front axle on the lane, rear axle towed behind it: no sideways slip.
     const p = path.at(st.d)
     const rx0 = chassis.rx
     const rz0 = chassis.rz
@@ -199,7 +208,7 @@ function Vehicle({ loop, speed: cruise, start = 0, reverse = false, size, wheels
     b.setNextKinematicTranslation({ x: p.x - Math.sin(yaw) * geo.frontZ, y: 0, z: p.z - Math.cos(yaw) * geo.frontZ })
     b.setNextKinematicRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) })
 
-    // 5. Suspension: the nose dips under braking and lifts pulling away; the body leans
+    // 6. Suspension: the nose dips under braking and lifts pulling away; the body leans
     // out of bends. Only the body tilts; the wheels stay on the road.
     const longAccel = (st.v - prevV) / Math.max(dt, 1e-3)
     const latAccel = st.v * st.v * p.curv * dir
