@@ -24,10 +24,22 @@ export default function Hud({
   onClassic,
 }) {
   const [touch] = useState(isTouch)
+  const hud = useRef()
+  const top = useRef()
+
+  // The top buttons wrap onto more rows on narrow screens; expose the header's real
+  // height so the minimap can sit just below it instead of on top of the buttons.
+  useEffect(() => {
+    const header = top.current
+    if (!header || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => hud.current?.style.setProperty('--hud-top-h', `${header.offsetHeight}px`))
+    ro.observe(header)
+    return () => ro.disconnect()
+  }, [])
 
   return (
-    <div className="hud">
-      <header className="hud-top">
+    <div className={`hud${touch ? ' is-touch' : ''}`} ref={hud}>
+      <header className="hud-top" ref={top}>
         <div className="hud-brand">
           <span className="hud-prompt">rajan@chennai</span>
           <span className="hud-where">{zone ? zone.name : 'Exploring'}</span>
@@ -51,6 +63,9 @@ export default function Hud({
         </div>
       </header>
 
+      {/* On phones and touch screens these two stack above the controls; on desktop
+          the wrapper has no box and they keep their own top / bottom positions. */}
+      <div className="hud-stack">
       {!riding && <ZoneBanner zone={zone} touch={touch} onOpen={onOpen} />}
 
       {!moved && !riding && (
@@ -67,6 +82,7 @@ export default function Hud({
           )}
         </div>
       )}
+      </div>
 
       <Minimap camRef={camRef} playerPosRef={playerPosRef} activeId={zone?.id} onTravel={onTravel} />
 
@@ -154,8 +170,11 @@ function Minimap({ camRef, playerPosRef, activeId, onTravel }) {
 
 function TouchControls({ inputRef, onFirstMove }) {
   const base = useRef()
-  const [knob, setKnob] = useState({ x: 0, y: 0 })
+  const knob = useRef()
   const pointer = useRef(null)
+  const setKnob = (x, y) => {
+    if (knob.current) knob.current.style.transform = `translate(${x}px, ${y}px)`
+  }
   const MAX = 44
 
   const move = (e) => {
@@ -169,13 +188,13 @@ function TouchControls({ inputRef, onFirstMove }) {
     }
     inputRef.current.joyX = dx / MAX
     inputRef.current.joyY = dy / MAX
-    setKnob({ x: dx, y: dy })
+    setKnob(dx, dy)
   }
   const end = () => {
     pointer.current = null
     inputRef.current.joyX = 0
     inputRef.current.joyY = 0
-    setKnob({ x: 0, y: 0 })
+    setKnob(0, 0)
   }
 
   return (
@@ -193,13 +212,14 @@ function TouchControls({ inputRef, onFirstMove }) {
         onPointerUp={end}
         onPointerCancel={end}
       >
-        <span className="joystick-knob" style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }} />
+        <span className="joystick-knob" ref={knob} />
       </div>
       <button
         type="button"
         className="jump-btn"
         aria-label="Jump"
-        onPointerDown={() => {
+        onPointerDown={(e) => {
+          capture(e)
           inputRef.current.jump = true
         }}
         onPointerUp={() => {

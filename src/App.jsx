@@ -23,6 +23,16 @@ export default function App() {
     window.scrollTo(0, 0)
   }, [stage])
 
+  // A #classic link opened in a tab that already has the site open (the page doesn't
+  // reload on a hash change) should still switch to the classic site.
+  useEffect(() => {
+    const onHash = () => {
+      if (window.location.hash === '#classic') setStage('classic')
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
   const enterWorld = useCallback(() => {
     // Start downloading the world while the terminal animation plays.
     import('./world/World').catch(() => {})

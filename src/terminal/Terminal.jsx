@@ -29,6 +29,10 @@ const BOOT_SEQUENCE = [
   [300, { text: '[ OK ] City ready.', tone: 'ok' }],
 ]
 
+// Phones/tablets: no physical keyboard, and focusing the input would pop up the
+// on-screen keyboard over the hold button.
+const isTouch = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -37,6 +41,7 @@ const entry = (lines, command) => ({ id: nextId++, lines, command })
 
 export default function Terminal({ onEnter, onClassic }) {
   const [skipBoot] = useState(prefersReducedMotion)
+  const [touch] = useState(isTouch)
   const [bootLines, setBootLines] = useState(() => (skipBoot ? BOOT_SEQUENCE.map(([, l]) => l) : []))
   const [booted, setBooted] = useState(skipBoot)
   const [history, setHistory] = useState([])
@@ -93,8 +98,8 @@ export default function Terminal({ onEnter, onClassic }) {
   }, [bootLines, history, booted])
 
   useEffect(() => {
-    if (booted) inputRef.current?.focus({ preventScroll: true })
-  }, [booted])
+    if (booted && !touch) inputRef.current?.focus({ preventScroll: true })
+  }, [booted, touch])
 
   // SPACE held = hold to enter, but only when the user isn't mid-command.
   useEffect(() => {
@@ -190,11 +195,13 @@ export default function Terminal({ onEnter, onClassic }) {
                 {ASCII_NAME.join('\n')}
               </pre>
               <p className="term-line tone-title">{profile.role}</p>
-              <p className="term-line tone-dim">📍 {profile.location} · வணக்கம்! Type “help” or just hold SPACE.</p>
+              <p className="term-line tone-dim">📍 {profile.location} · வணக்கம்!{' '}
+                {touch ? 'Press & hold the button below, or tap here to type “help”.' : 'Type “help” or just hold SPACE.'}
+              </p>
 
               <div className="hold" aria-live="polite">
                 <p className="hold-label">
-                  {pct === 0 ? '> HOLD [SPACE] TO ENTER THE CITY' : pct < 100 ? '> KEEP HOLDING…' : '> ENTERING…'}
+                  {pct === 0 ? (touch ? '> PRESS & HOLD TO ENTER THE CITY' : '> HOLD [SPACE] TO ENTER THE CITY') : pct < 100 ? '> KEEP HOLDING…' : '> ENTERING…'}
                 </p>
                 <div className="hold-row">
                   <span className="hold-bar" aria-hidden="true">
@@ -235,7 +242,7 @@ export default function Terminal({ onEnter, onClassic }) {
             </>
           )}
 
-          {!booted && <p className="term-line tone-dim term-skiphint">press any key to skip</p>}
+          {!booted && <p className="term-line tone-dim term-skiphint">{touch ? 'tap to skip' : 'press any key to skip'}</p>}
         </div>
 
         {booted && (

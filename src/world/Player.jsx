@@ -35,6 +35,7 @@ export default function Player({ inputRef, camRef, uiRef, rideRef, playerPosRef,
   const rays = useRef(null)
   const camTarget = useMemo(() => new Vector3(SPAWN[0], SPAWN[1] + 1, SPAWN[2]), [])
   const camDist = useRef(7)
+  const tag = useRef()
 
   useFrame((state, rawDt) => {
     const b = body.current
@@ -60,6 +61,7 @@ export default function Player({ inputRef, camRef, uiRef, rideRef, playerPosRef,
     const ride = rideRef.current
     const seated = ride.phase === 'asking' || ride.phase === 'riding'
     model.current.visible = !seated
+    if (tag.current) tag.current.style.visibility = seated ? 'hidden' : ''
     if (seated) {
       b.setTranslation({ x: ride.x, y: FOOT + 0.05, z: ride.z }, true)
       b.setLinvel({ x: 0, y: 0, z: 0 }, true)
@@ -168,9 +170,11 @@ export default function Player({ inputRef, camRef, uiRef, rideRef, playerPosRef,
       <group ref={model}>
         <CharacterModel anim={anim} outfit={outfit} />
       </group>
-      {/* Name tag above the head; outside the turning model so it stays put. */}
-      <Html position={[0, 1.35, 0]} center zIndexRange={[20, 0]} className="name-tag-wrap">
-        <div className="name-tag">Rajan</div>
+      {/* Name tag above the head; outside the turning model so it stays put. Hidden in the auto. */}
+      <Html position={[0, 1.35, 0]} center zIndexRange={[10, 0]} className="name-tag-wrap">
+        <div className="name-tag" ref={tag}>
+          Rajan
+        </div>
       </Html>
     </RigidBody>
   )

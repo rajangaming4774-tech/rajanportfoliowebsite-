@@ -10,6 +10,9 @@
 .world-canvas {
   position: absolute;
   inset: 0;
+  /* Own stacking layer: the 3D labels (name tag, zone signs) carry z-indexes and must
+     stay under the HUD, dialogs and panels. */
+  z-index: 0;
   touch-action: none;
   cursor: grab;
 }
@@ -346,25 +349,84 @@
   from { opacity: 0; transform: translate(-50%, -8px); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
+@keyframes stack-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
 @keyframes loading-slide {
   from { transform: translateX(-100%); }
   to { transform: translateX(250%); }
 }
 
+/* Banner + controls help: no box of its own on desktop (each keeps its own spot). */
+.hud-stack {
+  display: contents;
+}
+
+/* Phones and touch screens: banner and help stack above the controls instead of
+   landing on the joystick, the jump button or each other. */
+@media (max-width: 640px), (pointer: coarse) {
+  .hud-stack {
+    position: absolute;
+    left: 50%;
+    bottom: 64px;
+    transform: translateX(-50%);
+    width: min(380px, calc(100vw - 32px));
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .hud.is-touch .hud-stack {
+    bottom: 164px;
+  }
+  .hud-stack .zone-banner,
+  .hud-stack .hud-help {
+    position: static;
+    transform: none;
+    min-width: 0;
+    max-width: none;
+    animation-name: stack-in;
+  }
+}
+
 @media (max-width: 640px) {
-  .minimap {
-    top: 120px;
-    bottom: auto;
-    right: 12px;
-    width: 110px;
+  .hud-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px;
+  }
+  .hud-brand {
+    flex-direction: row;
+    flex-wrap: wrap;
+    column-gap: 10px;
+    align-self: flex-start;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .hud-actions {
+    justify-content: flex-start;
+    gap: 6px;
   }
   .hud-btn {
     padding: 8px 10px;
     font-size: 12px;
   }
-  .zone-banner {
-    top: auto;
-    bottom: 170px;
+  /* Just below the (wrapping) top buttons; Hud.jsx measures their height. */
+  .minimap {
+    top: calc(var(--hud-top-h, 132px) + 4px);
+    bottom: auto;
+    right: 12px;
+    width: 110px;
+  }
+  .jump-btn {
+    right: 24px;
+    bottom: 52px;
+  }
+  .hud-help {
+    font-size: 12px;
   }
 }
 

@@ -5,14 +5,16 @@ import {
   BufferAttribute,
   CanvasTexture,
   Color,
+  Matrix4,
   MeshStandardMaterial,
   Quaternion,
   RepeatWrapping,
   SkinnedMesh,
+  Sphere,
   SRGBColorSpace,
   Vector3,
 } from 'three'
-import { SkeletonUtils } from 'three/examples/jsm/Addons.js'
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { stripLightsAndCameras } from './props/gltf'
 import { HUMAN_MODEL, WOMAN_MODELS } from './humanModels'
@@ -60,11 +62,11 @@ export default function RiggedHuman({ anim, colors, plaid, shades = true, scale 
     for (const o of parts) {
       o.castShadow = castShadow
       o.receiveShadow = true
-      o.frustumCulled = false
       ensureUVs(o.geometry)
       o.material = o.material.clone()
     }
     if (merge && parts.length > 1) mergeParts(clone, parts, castShadow)
+    enableCulling(clone)
     return clone
   }, [scene, castShadow, merge])
 
@@ -245,12 +247,37 @@ function mergeParts(root, parts, castShadow) {
   body.bind(first.skeleton, first.bindMatrix.clone())
   body.castShadow = castShadow
   body.receiveShadow = true
-  body.frustumCulled = false
   first.parent.add(body)
   for (const p of parts) p.parent.remove(p)
   root.userData.ranges = ranges
   root.userData.body = body
   root.userData.restPositions = merged.attributes.position.array.slice()
+}
+
+// Skinned meshes can't use their geometry's bounds (the bones move the vertices), so
+// they were drawn even when off screen or behind the camera. Give the character one
+// fixed sphere: the whole skinned rest pose (in the space the posed vertices end up
+// in), enlarged to cover the swing of the arms and legs in the walk / run / jump
+// poses. Every part shares it, so a small part (eyes, shades) is never culled on its own.
+function enableCulling(root) {
+  root.updateMatrixWorld(true)
+  const meshes = []
+  root.traverse((o) => {
+    if (o.isSkinnedMesh) meshes.push(o)
+  })
+  const all = new Sphere()
+  all.makeEmpty()
+  for (const m of meshes) {
+    m.skeleton.update()
+    m.computeBoundingSphere()
+    all.union(m.boundingSphere.clone().applyMatrix4(m.matrixWorld))
+  }
+  all.radius *= 1.4
+  const inv = new Matrix4()
+  for (const m of meshes) {
+    m.boundingSphere = all.clone().applyMatrix4(inv.copy(m.matrixWorld).invert())
+    m.frustumCulled = true
+  }
 }
 
 function recolourMerged(root, colors, shades) {

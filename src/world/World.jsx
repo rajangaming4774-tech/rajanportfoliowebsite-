@@ -222,7 +222,8 @@ export default function World({ onTerminal, onClassic }) {
     <div className="world-root">
       <div className="world-canvas" {...orbit}>
         <Canvas
-          shadows
+          // PCF: three r186 dropped PCFSoft (it falls back to PCF with a console warning)
+          shadows="percentage"
           dpr={[1, 1.75]}
           camera={{ fov: 55, near: 0.3, far: 700, position: [0, 6, -24] }}
           gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: PRESETS[time].exposure }}

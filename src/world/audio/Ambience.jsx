@@ -24,8 +24,9 @@ function MuteButton({ engine }) {
 }
 
 // Rendered inside the Canvas. The audio only starts after a user gesture, and the
-// mute button lives in its own React root on document.body (a DOM portal cannot
-// be created from inside the three.js reconciler).
+// mute button lives in its own React root inside the world's root element (a DOM
+// portal cannot be created from inside the three.js reconciler), so it stacks with
+// the HUD rather than above the loading screen and panels.
 export default function Ambience() {
   const camera = useThree((s) => s.camera)
   const engineRef = useRef(null)
@@ -34,7 +35,8 @@ export default function Ambience() {
     const engine = createAmbience()
     engineRef.current = engine
     const host = document.createElement('div')
-    document.body.appendChild(host)
+    const parent = document.querySelector('.world-root') ?? document.body
+    parent.appendChild(host)
     const root = createRoot(host)
     root.render(<MuteButton engine={engine} />)
 

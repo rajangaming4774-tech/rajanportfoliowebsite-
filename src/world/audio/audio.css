@@ -2,7 +2,7 @@
   position: fixed;
   left: 16px;
   bottom: 16px;
-  z-index: 30;
+  z-index: 12; /* above the HUD, under dialogs/panels (15) and the loading screen (20) */
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -40,5 +40,19 @@
 @media (pointer: coarse) {
   .world-audio-btn {
     bottom: 164px;
+  }
+}
+/* Narrow screens: the banner/help stack is centred above the bottom controls, so the
+   sound button moves to the free corner (above the jump button on touch). */
+@media (max-width: 640px) and (pointer: fine) {
+  .world-audio-btn {
+    bottom: 12px;
+  }
+}
+@media (max-width: 640px) and (pointer: coarse) {
+  .world-audio-btn {
+    left: auto;
+    right: 12px;
+    bottom: 124px;
   }
 }
